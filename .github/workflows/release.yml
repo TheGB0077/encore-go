@@ -67,7 +67,11 @@ jobs:
 
       - name: "Tar artifacts"
         shell: bash
-        run: tar -czvf ${{ steps.encore_go_version.outputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist/${{ matrix.goos }}_${{ matrix.goarch }} .
+        env:
+          VERSION: ${{ steps.encore_go_version.outputs.version }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: tar -czvf "${VERSION}-${GOOS}_${GOARCH}.tar.gz" -C "dist/${GOOS}_${GOARCH}" .
 
       - name: "Upload build artifact"
         uses: actions/upload-artifact@v4
