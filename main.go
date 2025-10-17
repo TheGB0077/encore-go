@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -79,7 +79,8 @@ func isfile(p string) bool {
 
 // readfile returns the content of the named file.
 func readfile(file string) string {
-	data, err := ioutil.ReadFile(file)
+	input, _ := os.Open(file)
+	data, err := io.ReadAll(input)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

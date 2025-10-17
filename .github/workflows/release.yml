@@ -7,9 +7,12 @@ on:
         description: 'Go version to build ("1.21")'
         required: true
       prerelease:
-        description: 'Is this a pre-release?'
-        required: true
-        default: 'false'
+        description: "Is this a pre-release?"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -22,10 +25,10 @@ jobs:
           - builder: macos-latest
             goos: darwin
             goarch: amd64
-          - builder: ubuntu-20.04
+          - builder: ubuntu-22.04
             goos: linux
             goarch: amd64
-          - builder: ubuntu-20.04
+          - builder: ubuntu-22.04
             goos: linux
             goarch: arm64
           - builder: windows-latest
@@ -37,17 +40,18 @@ jobs:
       built_version: ${{ steps.encore_go_version.outputs.version }}
     steps:
       - name: Check out repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0   # We need the full history for the Go submodule
+          fetch-depth: 0 # We need the full history for the Go submodule
           submodules: true # Checkout the Go submodule
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.20'
+          go-version: "1.24"
+          cache: true
 
-      - name: 'Create patched runtime'
+      - name: "Create patched runtime"
         run: bash ./apply_patch.bash "${{ github.event.inputs.version }}"
 
       - name: Build
@@ -56,32 +60,32 @@ jobs:
           GO111MODULE: "on"
 
       # This step gets the exact version of Go we're releasing (including minor), so if we give the input as `1.17` this might return `encore-go1.17.5`.
-      - name: 'Read the version of Go we built'
+      - name: "Read the version of Go we built"
         id: encore_go_version
-        run: echo "::set-output name=version::$(go run . --read-built-version)"
+        run: echo "version=$(go run . --read-built-version)" >> $GITHUB_OUTPUT
 
-      - name: 'Tar artifacts'
+      - name: "Tar artifacts"
         run: tar -czvf ${{ steps.encore_go_version.outputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist/${{ matrix.goos }}_${{ matrix.goarch }} .
 
-      - name: 'Upload build artifact'
-        uses: actions/upload-artifact@v2
+      - name: "Upload build artifact"
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.encore_go_version.outputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}
           path: ${{ steps.encore_go_version.outputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
   release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build
     steps:
-      - name: 'Download artifacts from build steps'
-        uses: actions/download-artifact@v2
+      - name: "Download artifacts from build steps"
+        uses: actions/download-artifact@v5
 
-      - name: 'Convert windows artifact to zip'
+      - name: "Convert windows artifact to zip"
         run: |
           cd ${{needs.build.outputs.built_version}}-windows_amd64
           tar -xzf ${{needs.build.outputs.built_version}}-windows_amd64.tar.gz
           zip -r ${{needs.build.outputs.built_version}}-windows_amd64.zip encore-go
 
-      - name: 'Move, rename and create checksums for the artifacts'
+      - name: "Move, rename and create checksums for the artifacts"
         run: |
           mkdir output
           mv ${{needs.build.outputs.built_version}}-linux_amd64/${{needs.build.outputs.built_version}}-linux_amd64.tar.gz output/linux_x86-64.tar.gz
@@ -97,16 +101,20 @@ jobs:
           cd ..
           cat checksums.txt
 
-      - name: 'Publish release'
-        uses: DomBlack/github-release@2.0
+      - name: "Publish release"
+        uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.build.outputs.built_version }}
+          tag_name: ${{ needs.build.outputs.built_version }}
           name: ${{ needs.build.outputs.built_version }}
-          body: >
+          body: |
             This release is the compiled version of ${{ needs.build.outputs.built_version }}
           draft: false
-          allow_override: true
           prerelease: ${{ github.event.inputs.prerelease }}
-          gzip: false
-          files: linux_x86-64.tar.gz linux_arm64.tar.gz windows_x86-64.tar.gz windows_x86-64.zip macos_arm64.tar.gz macos_x86-64.tar.gz checksums.txt
+          files: |
+            linux_x86-64.tar.gz
+            linux_arm64.tar.gz
+            windows_x86-64.tar.gz
+            windows_x86-64.zip
+            macos_arm64.tar.gz
+            macos_x86-64.tar.gz
+            checksums.txt
