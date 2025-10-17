@@ -66,6 +66,7 @@ jobs:
         run: echo "version=$(go run . --read-built-version)" >> $GITHUB_OUTPUT
 
       - name: "Tar artifacts"
+        shell: bash
         run: tar -czvf ${{ steps.encore_go_version.outputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C dist/${{ matrix.goos }}_${{ matrix.goarch }} .
 
       - name: "Upload build artifact"
