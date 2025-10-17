@@ -63,15 +63,20 @@ jobs:
       # This step gets the exact version of Go we're releasing (including minor), so if we give the input as `1.17` this might return `encore-go1.17.5`.
       - name: "Read the version of Go we built"
         id: encore_go_version
-        run: echo "version=$(go run . --read-built-version)" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          VERSION_OUTPUT=$(go run . --read-built-version)
+          echo "version=${VERSION_OUTPUT}" >> $GITHUB_OUTPUT
+          echo "Detected version: ${VERSION_OUTPUT}"
 
       - name: "Tar artifacts"
         shell: bash
-        env:
-          VERSION: ${{ steps.encore_go_version.outputs.version }}
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: tar -czvf "${VERSION}-${GOOS}_${GOARCH}.tar.gz" -C "dist/${GOOS}_${GOARCH}" .
+        run: |
+          VERSION="${{ steps.encore_go_version.outputs.version }}"
+          GOOS="${{ matrix.goos }}"
+          GOARCH="${{ matrix.goarch }}"
+          echo "Creating artifact: ${VERSION}-${GOOS}_${GOARCH}.tar.gz"
+          tar -czvf "${VERSION}-${GOOS}_${GOARCH}.tar.gz" -C "dist/${GOOS}_${GOARCH}" .
 
       - name: "Upload build artifact"
         uses: actions/upload-artifact@v4
